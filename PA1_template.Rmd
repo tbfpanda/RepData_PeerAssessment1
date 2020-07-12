@@ -1,25 +1,133 @@
+
+
+# Reproducible Research: Peer Assessment 1
+
 ---
+
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+output:
+        html document:
+                keep_md: TRUE
+
 ---
 
+Here is the code for reading in and processing the data
 
-## Loading and preprocessing the data
+```{r Processing Data Code}
+library(dplyr)
+library(tidyverse)
+library(reshape2)
+library(lubridate)
+library(ggplot2)
+
+activdata <-read.csv("activity.csv")
+
+head(activdata)
+
+activdata <- tbl_df(activdata)
+activdata
+summary(activdata$steps)
+
+activdata$dayname <- wday(activdata$date, label = TRUE)
+
+activdata$day <- day(activdata$date)
+
+activdata$month <- month(activdata$date)
+```
+
+Now plotting the total number of steps per day and calculating the mean and median number of total number of steps per day
+
+```{r Mean total number of steps taken per day}
+
+stepsday <- tapply(activdata$steps, activdata$date, sum, na.rm = TRUE)
+qplot( x = stepsday, geom = "histogram") + geom_histogram(color = "white") + theme_bw() +
+        labs(x = "Steps taken per day", y = "Frequency")
+
+meansteps <- mean(activdata$steps, na.rm = T)
+mediansteps <- median(activdata$steps, na.rm = T)
+print("Mean total number of steps per day:")
+meansteps
+print("Median total number of steps per day:")
+mediansteps
+
+```
+
+Writing code to plot average number of steps for all intervals,averaged across all days and
+printing the interval with maximum average number of steps
+
+```{r Relationship between intervals and number of steps taken}
+
+intervalav <- tapply(activdata$steps, activdata$interval, mean, na.rm = TRUE)
+intervalav <- cbind(rownames(intervalav), intervalav)
+intervalav <- tbl_df(intervalav)
+colnames(intervalav) <- c("interval", "average")
+intervalav <- tbl_df(intervalav)
+intervalav$interval <- as.numeric(intervalav$interval)
+intervalav$average <- as.numeric(intervalav$average)
+qplot(data = intervalav, x = interval, y = average, geom = c("point","line")) +
+        theme_bw() + labs(title = "Time series plot of average steps per interval of time", x = "Intervals",
+                          y = "Average number of steps") 
 
 
+maxinterval <- filter(intervalav, average == max(average))
+print("Interval with maximum average number of steps is: ")
+maxinterval$interval
+print("The maximun average number of steps are: ")
+maxinterval$average
 
-## What is mean total number of steps taken per day?
+```
+
+Writing code for reporting NA's, filling in the NA values and drawing means and medians again
+
+```{r Imputing Missing Values}
+
+summary(activdata)
+
+print("Looking at the summary we conclude that the data has 2304 rows with NA values")
+
+# now replacing the NA values 
 
 
+intervalav <- tapply(activdata$steps, activdata$interval, mean, na.rm = TRUE)
 
-## What is the average daily activity pattern?
+for(i in 1:length(activdata$steps)){
+        
+        if (is.na(activdata$steps[i])){
+                
+                activdata$steps[i] <- intervalav[as.character(activdata$interval[i])]
+        }
+        
+}
+
+# the activdata dataset has been modified to fill in the na values with the means
+
+print("The dataset has been modified with values put in place of NA")
+
+stepsday <- tapply(activdata$steps, activdata$date, sum, na.rm = TRUE)
+qplot( x = stepsday, geom = "histogram") + geom_histogram(color = "white") + theme_bw() +
+        labs(x = "Steps taken per day", y = "Frequency")
+
+meansteps <- mean(activdata$steps, na.rm = T)
+mediansteps <- median(activdata$steps, na.rm = T)
+print("Mean total number of steps per day:")
+meansteps
+print("Median total number of steps per day:")
+mediansteps
+
+```
+
+Finally making the plots for weekends and weekdays 
+
+```{r Weekend and Weekday plots with updated data}
+
+activdata$daytype <- factor(activdata$dayname %in% c("Sat", "Sun"), labels = c("weekday","weekend"))
+weekdata <- tapply(activdata$steps, list(activdata$interval, activdata$daytype), mean, na.rm = TRUE)
+weekdata <- cbind(rownames(weekdata), weekdata[,1], weekdata[,2])
+weekdata1 <- tbl_df(weekdata)
+weekdata1$interval <- as.numeric(rownames(weekdata))
+weekdata <- melt(weekdata1, id = "interval")
+g <- ggplot(data = weekdata, aes(x = interval, y = value)) + facet_grid(variable~.) + theme_bw()
+g + geom_point() + geom_line() + labs(x = "Intervals", y = "Average number of steps", title = "Average number of steps on weekends and weekdays")
 
 
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+```
